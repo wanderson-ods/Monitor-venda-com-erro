@@ -21,7 +21,7 @@ Private cSerieNFCe      := SuperGetMV("MV_SERIEMO",,"Zerado")
 Private aIndex          := {}
 Private bFiltraBrw      :={|| Filbrowse("ZW1",@aIndex, @cFiltra)}
 
-if cSerieNFCe == "Zerado"
+if cSerieNFCe == "Zerado" .or. TCCanOpen('ZW1')
     cSerieNFCe = ""
     if !MsgYesNo("Já foi criado SX3, SX2, SIX da ZW1/ZW2 e parâmetro MV_SERIEMO", "Informações necessarias para uso")
         RETURN
