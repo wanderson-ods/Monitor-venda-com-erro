@@ -1,71 +1,101 @@
-#INCLUDE "PROTHEUS.CH"
-#INCLUDE "TCBROWSE.CH"
-#INCLUDE "FWMVCDEF.CH"
-#INCLUDE "Parmtype.CH"
-#INCLUDE "TopConn.CH"
+#include 'protheus.ch'
+#include 'parmtype.ch'
+#include 'FwMvcDef.ch'
 
-/*ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-±±³Funcao    ³ MONITORVENDAER ³ Autor ³ Wanderson          ³ Data ³ 22/02/22 ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Descricao ³ Monitor NFC-e para numerações que estão com erro           ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Uso		 ³ Automacao Comercial										  ³±±
-ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß*/
-User Function MONITORVENDAER()
-Local cAlias            := "ZW1"
-Local cFiltra           := "ZW1_FILIAL == '"+xFilial('ZW1')+"'"
-Local aCores            := {}
-Private cCadastro       := "Monitor NFC-e"
-Private aRotina         := {}
-Private cSerieNFCe      := SuperGetMV("MV_SERIEMO",,"Zerado")
-Private aIndex          := {}
-Private bFiltraBrw      :={|| Filbrowse("ZW1",@aIndex, @cFiltra)}
+/*/{Protheus.doc} MNTMVCVENDAER
+//Monitor NFC-e para numerações que estão com erro  
+@author Wanderson
+@version 1.0
+@type function
+/*/
+user function MNTMVCVENDAER()
+	Local aArea         := GetArea()
+	Local oBrowse       := FwMBrowse():New()
+	
+	oBrowse:SetAlias("ZW1")
+	oBrowse:SetDescription  ("Monitor de Vendas com erro")
+	
+	// definindo as legendas
+    oBrowse:AddLegend("ZW1_STATUS == 'a'", "YELLOW")
+    oBrowse:AddLegend("ZW1_STATUS == 'b'", "BLUE")
+    oBrowse:AddLegend("ZW1_STATUS == 'c'", "GRAY")
+    oBrowse:AddLegend("ZW1_STATUS == 'd'", "GREEN")
+    oBrowse:AddLegend("ZW1_STATUS == 'e'", "ORANGE")
+    oBrowse:AddLegend("ZW1_STATUS == 'f'", "RED")
+    oBrowse:AddLegend("ZW1_STATUS == 'g'", "BROWN")
+	
+    //ativa o browse
+	oBrowse:Activate()
+	RestArea(aArea)
+		
+return Nil
 
-if cSerieNFCe == "Zerado" .or. TCCanOpen('ZW1')
-    cSerieNFCe = ""
-    if !MsgYesNo("Já foi criado SX3, SX2, SIX da ZW1/ZW2 e parâmetro MV_SERIEMO", "Informações necessarias para uso")
-        RETURN
-    endif
-ENDIF
+Static Function MenuDef()
 
-U_ProcessaMonitor()
+	Local aRotina := {}
+    aRotina := FwMvcMenu("MNTMVCVENDAER") //Cria todos os botões padrão
 
-Aadd(aRotina, {"Visualizar"     ,"AxVisual"             ,0,1})
-Aadd(aRotina, {"Atualizar"      ,"U_ProcessaMonitor"    ,0,2})
-Aadd(aRotina, {"Rel. Impressão" ,"U_IMPRIMEMONER"         ,0,3})
-Aadd(aRotina, {"Restaura venda" ,"U_VoltaVendaCanc"     ,0,4})
-Aadd(aRotina, {"Legenda"        ,"U_LegendaMonitor"     ,0,6})//IMPRIMEMONER
+    //Add OPTION aRotina TITLE 'Visualizar' ACTION 'VIEWDEF.MVC001'  		            OPERATION 2 ACCESS 0
+    //Add OPTION aRotina TITLE 'Incluir' ACTION 'VIEWDEF.MVC001' 	   		            OPERATION 3 ACCESS 0
+    //Add OPTION aRotina TITLE 'Alterar' ACTION 'VIEWDEF.MVC001'     		            OPERATION 4 ACCESS 0
+    //Add OPTION aRotina TITLE 'Excluir' 	ACTION 'VIEWDEF.MVC001'     	            OPERATION 5 ACCESS 0
+    Add OPTION aRotina TITLE 'Restauravenda' ACTION 'U_ValidVendaCanc()'            OPERATION 6 ACCESS 0
+    Add OPTION aRotina TITLE 'Processa Venda' ACTION 'U_ValidMonitor()'     	    OPERATION 6 ACCESS 0//
+    Add OPTION aRotina TITLE 'Legenda' ACTION 'U_LegenMon()'                        OPERATION 6 ACCESS 0
+    Add OPTION aRotina TITLE 'Rel. personalizado' ACTION 'U_IMPRIMEMONER()'         OPERATION 6 ACCESS 0
 
-//Cores legenda
-Aadd(aCores, {"ZW1_STATUS == 'a'", "BR_AMARELO"})
-Aadd(aCores, {"ZW1_STATUS == 'b'", "BR_AZUL"})
-Aadd(aCores, {"ZW1_STATUS == 'c'", "BR_PRETO"})
-Aadd(aCores, {"ZW1_STATUS == 'd'", "BR_VIOLETA"})
-Aadd(aCores, {"ZW1_STATUS == 'e'", "BR_LARANJA"})
-Aadd(aCores, {"ZW1_STATUS == 'f'", "BR_VERMELHO"})
-Aadd(aCores, {"ZW1_STATUS == 'g'", "BR_MARROM"})
+Return aRotina//
 
-DbSelectArea(cAlias)
-DbSetOrder(1)
+Static Function ModelDef()
+	Local oModel := MPFormModel():New("XMVC003",,,,)
+	Local oStPai := FWFormStruct(1,"ZW1")
+	Local oStFilho := FWFormStruct(1,"ZW2")
+	
+	oModel:AddFields("ZW1MASTER",,oStPai)
+	oModel:AddGrid('ZW2DETAIL','ZW1MASTER',oStFilho,,,,,)
+	
+	oModel:SetRelation('ZW2DETAIL',{{'ZW2_FILIAL','xFilial("ZW2")'},{'ZW2_SERIE','ZW1_SERIE'}},ZW2->(IndexKey(1)))
+	
+	oModel:SetPrimaryKey({"ZW2_FILIAL",""})
+		
+	oModel:SetDescription("Modelo 3")
+	oModel:GetModel('ZW1MASTER'):SetDescription('Venda Erro')
+	oModel:GetModel('ZW2DETAIL'):SetDescription('Serie apurada')
 
-Eval(bFiltraBrw)
+Return oModel
 
-DBGOTOP()
+Static Function ViewDef()
+	local oView := Nil
+	Local oModel := FWLoadModel("MNTMVCVENDAER")
+	Local oStPai := FwFormStruct(2,"ZW1")
+	Local oStFilho := FwFormStruct(2,"ZW2")
+	
+	oView := FWFormView():New()
+	oView:SetModel(oModel) 
+	
+	oView:AddField('VIEW_ZW1',oStPai,'ZW1MASTER')
+	oView:AddGrid('VIEW_ZW2',oStFilho,'ZW2DETAIL')
+	
+	oView:CreateHorizontalBox('CABEC',60)
+	oView:CreateHorizontalBox('GRID',40)
+	
+	oView:SetOwnerView('VIEW_ZW1','CABEC')
+	oView:SetOwnerView('VIEW_ZW2','GRID')
+	
+	oView:EnableTitleView("VIEW_ZW1",'Cabeçalho')
+	oView:EnableTitleView("VIEW_ZW2",'Grid')
 
-MBrowse(6,1,22,75,cAlias,,,,,,aCores)
+    oView:SetCloseOnOk({||.T.})
 
-EndFilBrw(cAlias,aIndex)
+Return oView
 
-return 
-
-/*ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-±±³Funcao    ³ ProcessaMonitor	 ³ Autor ³ Wanderson    ³ Data ³ 22/02/22 ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Descricao ³ Valida vendas com erro                                     ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Uso		 ³ Automacao Comercial										  ³±±
-ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß*/
-User Function ProcessaMonitor()
+/*/{Protheus.doc} MNTMVCVENDAER
+//Monitor NFC-e para numerações que estão com erro  
+@author Wanderson
+@version 1.0
+@type function
+/*/
+user function ValidMonitor()
 Local nX            := 1
 Local nY            := 1
 Local nZ            := 1
@@ -79,6 +109,15 @@ Private aSeries     := {}
 Private nPosItem    := 1
 Private aVendErro   := {}
 Private cPosInicial := 1
+Private cSerieNFCe  := SuperGetMV("MV_SERIEMO",,"")
+
+if cSerieNFCe == TCCanOpen('ZW1')
+    cSerieNFCe = ""
+    if !MsgYesNo("Já foi criado SX3, SX2, SIX da ZW1/ZW2 e parâmetro MV_SERIEMO", ;
+    "Informações necessarias para uso")
+        RETURN false
+    endif
+ENDIF
 
 cSerieNFCe  := AllTrim(cSerieNFCe)
 
@@ -114,8 +153,10 @@ cQuery += " "+RetSQLName("ZW1") "
 cQuery += " WHERE "
 cQuery += " ZW1_FILIAL = '"+ xFilial("ZW1")+"' "
 cQuery += " AND D_E_L_E_T_ != '*' "
+cQuery := ChangeQuery( cQuery )
+dbUseArea( .T., "TOPCONN", TcGenQry(,,cQuery), "TMPZW1", .T., .T. )
 
-TCQuery cQuery New Alias "TMPZW1"
+//TCQuery cQuery New Alias "TMPZW1"
 
 while !TMPZW1->(Eof())
     Aadd(aDados, TMPZW1->SERIE+"/"+TMPZW1->DOCUMENTO+"/"+TMPZW1->PDV)
@@ -178,8 +219,10 @@ for nX := 1 to Len(aSeries)
                 cQuery += " AND D_E_L_E_T_ != '*' AND "
                 cQuery += " L1_DOC = '"+cDoc+"' AND "
                 cQuery += " L1_SERIE = '"+aSeries[nX]+"' "
+                cQuery := ChangeQuery( cQuery )
+                dbUseArea( .T., "TOPCONN", TcGenQry(,,cQuery), "TMPL1", .T., .T. )
 
-                TCQuery cQuery New Alias "TMPL1"
+                //TCQuery cQuery New Alias "TMPL1"
 
                 while !TMPL1->(Eof())
 
@@ -208,7 +251,7 @@ for nX := 1 to Len(aSeries)
                 RestArea(aArea)
 
                 if cEncontra == "" //Nao encontrou na SL1 validar se existe na SLX
-                    aArea := SF2->(GetArea())
+                    aArea := SLX->(GetArea())
                     cQuery := " SELECT "
                     cQuery += " LX_SITUA AS SITUA, "
                     cQuery += " LX_PDV AS PDV "
@@ -219,8 +262,10 @@ for nX := 1 to Len(aSeries)
                     cQuery += " AND D_E_L_E_T_ != '*' "
                     cQuery += " AND LX_CUPOM = '"+cDoc+"' "
                     cQuery += " AND LX_SERIE = '"+aSeries[nX]+"' "
+                    cQuery := ChangeQuery( cQuery )
+                    dbUseArea( .T., "TOPCONN", TcGenQry(,,cQuery), "TMPLX", .T., .T. )
 
-                    TCQuery cQuery New Alias "TMPLX"
+                    //TCQuery cQuery New Alias "TMPLX"
 
                     while !TMPLX->(Eof())
                         cSitua      := TMPLX->SITUA
@@ -252,8 +297,9 @@ for nX := 1 to Len(aSeries)
                     cQuery += " AND D_E_L_E_T_ = '*' "
                     cQuery += " AND F2_DOC = '"+cDoc+"' "
                     cQuery += " AND F2_SERIE = '"+aSeries[nX]+"' "
-
-                    TCQuery cQuery New Alias "TMPF2"
+                    cQuery := ChangeQuery( cQuery )
+                    dbUseArea( .T., "TOPCONN", TcGenQry(,,cQuery), "TMPF2", .T., .T. )
+                    //TCQuery cQuery New Alias "TMPF2"
 
                     while !TMPF2->(Eof())
 
@@ -330,37 +376,12 @@ next nX
 
 return 
 
-/*ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-±±³Funcao    ³ LegendaMonitor	 ³ Autor ³ Wanderson    ³ Data ³ 22/02/22 ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Descricao ³ Ajusta legenda                                             ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Uso		 ³ Automacao Comercial										  ³±±
-ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß*/
-User Function LegendaMonitor()
-
-Local aLegenda := {}
-
-AADD(aLegenda, {"BR_AMARELO", "Não cancelou fiscal (X2)"})
-AADD(aLegenda, {"BR_AZUL", "Não enviou para TSS cancelamento (X0)"})
-AADD(aLegenda, {"BR_PRETO", "Numeração não encontrada"})
-AADD(aLegenda, {"BR_VIOLETA", "Cancelamento sem retorno do TSS (X1)"})
-AADD(aLegenda, {"BR_LARANJA", "Erro na inutilização"})
-AADD(aLegenda, {"BR_VERMELHO", "Cancelamento Rejeitado"})
-AADD(aLegenda, {"BR_MARROM", "Venda com erro de processamento"})
-
-BrwLegenda(cCadastro,"Legenda", aLegenda)
-
-return 
-
-/*ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-±±³Funcao    ³ VoltaVendaCanc	 ³ Autor ³ Wanderson    ³ Data ³ 22/02/22      ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Descricao ³ Restaura venda com erro, rejeirada e rejeição de cancelamento³   ±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Uso		 ³ Automacao Comercial										       ³±±
-ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß*/
-User Function VoltaVendaCanc()
+/*/{Protheus.doc} /04/2022
+    @author Wanderson
+    @version 1.0
+    @type function
+/*/
+user function ValidVendaCanc()
 
 Local cStatus   := ZW1->ZW1_STATUS
 Local cSerie    := ZW1->ZW1_SERIE
@@ -452,20 +473,18 @@ endif
 
 return 
 
-/*ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-±±³Funcao    ³ ValidaZW1	 ³ Autor ³ Wanderson    ³ Data ³ 22/02/22     ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Descricao ³ Valida se mudou status de vendas com erro                  ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Uso		 ³ Automacao Comercial										  ³±±
-ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß*/
-User Function ValidaZW1(aZW1)
+/*/{Protheus.doc} /04/2022
+    @author Wanderson
+    @version 1.0
+    @type function
+/*/
+USER FUNCTION ValidZW1(aZW1)
 Local nX            := 1
 Local cNumero       := ""
 Local cSerie        := ""
 Local cPDV          := ""
 Local lContinua     := .T. 
-Local nQuantidade   := Len(aZW1)  
+Local nQuantidade   := Len(aZW1) 
 
 if nQuantidade > 2500
     if !MsgYesNo("Sua tabela ZW1 vai ser analisada para ver se houve mudança em algum status das vendas com erro, mas nela possui uma quantidade grande de registros por este motivo deve demorar, deseja continuar a validação na ZW1?", "Continuar processando ZW1")
@@ -591,15 +610,13 @@ ENDIF
 
 return 
 
-/*ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-±±³Funcao    ³ MonUltiNum    	 ³ Autor ³ Wanderson    ³ Data ³ 22/02/22 ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Descricao ³ Pega o ultimo numero na ZW2                                ³±±
-±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
-±±³Uso		 ³ Automacao Comercial										  ³±±
-ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß*/
-User Function MonUltiNum(cSer)
-Local cNum := "1"
+/*/{Protheus.doc} /04/2022
+    @author Wanderson
+    @version 1.0
+    @type function
+/*/
+user FUNCTION MntUltiNum(cSer)
+private cNum := "1"
 
 aArea := ZW2->(GetArea())
         DbSelectArea("ZW2")
@@ -612,3 +629,32 @@ aArea := ZW2->(GetArea())
         RestArea(aArea)
 
 return cNum
+
+
+/*/{Protheus.doc} nomeFunction
+    (long_description)
+    @type  Function
+    @author user
+    @since 09/04/2022
+    @version version
+    @param param_name, param_type, param_descr
+    @return return_var, return_type, return_description
+    @example
+    (examples)
+    @see (links_or_references)
+    /*/
+User Function LegenMon()
+
+Local aLegenda := {}
+
+AADD(aLegenda, {"BR_AMARELO", "Não cancelou fiscal (X2)"})
+AADD(aLegenda, {"BR_AZUL", "Não enviou para TSS cancelamento (X0)"})
+AADD(aLegenda, {"BR_CINZA", "Numeração não encontrada"})
+AADD(aLegenda, {"BR_VERDE", "Cancelamento sem retorno do TSS (X1)"})
+AADD(aLegenda, {"BR_LARANJA", "Erro na inutilização"})
+AADD(aLegenda, {"BR_VERMELHO", "Cancelamento Rejeitado"})
+AADD(aLegenda, {"BR_MARROM", "Venda com erro de processamento"})
+
+BrwLegenda("Monitor venda com erro","Legenda", aLegenda)
+
+return
