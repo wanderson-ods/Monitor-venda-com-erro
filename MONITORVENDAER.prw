@@ -103,7 +103,6 @@ else
         
     end
 ENDIF
-aArea := ZW1->(GetArea())
 
 cQuery := " SELECT "
 cQuery += " ZW1_DOC AS DOCUMENTO, "
@@ -167,7 +166,6 @@ for nX := 1 to Len(aSeries)
                 cEncontra := ""
                 cPdv := ""
                 
-                aArea := SL1->(GetArea())
                 cQuery := " SELECT "
                 cQuery += " L1_SITUA AS SITUA, "
                 cQuery += " L1_PDV AS PDV "
@@ -205,10 +203,9 @@ for nX := 1 to Len(aSeries)
                 ENDDO
 
                 TMPL1->(DBCLOSEAREA())
-                RestArea(aArea)
 
                 if cEncontra == "" //Nao encontrou na SL1 validar se existe na SLX
-                    aArea := SF2->(GetArea())
+                
                     cQuery := " SELECT "
                     cQuery += " LX_SITUA AS SITUA, "
                     cQuery += " LX_PDV AS PDV "
@@ -238,11 +235,10 @@ for nX := 1 to Len(aSeries)
                     
                     ENDDO
                     TMPLX->(DBCLOSEAREA())
-                    RestArea(aArea)
                 ENDIF
 
                 if cEncontra == "" //Nao encontrou na SL1 e SLX validar se Está cancelada
-                    aArea := SF2->(GetArea())
+                
                     cQuery := " SELECT "
                     cQuery += " F2_DOC AS DOC "
                     cQuery += " FROM "
@@ -265,7 +261,6 @@ for nX := 1 to Len(aSeries)
                     
                     ENDDO
                     TMPF2->(DBCLOSEAREA())
-                    RestArea(aArea)
                 ENDIF
 
                 if cEncontra == "" //Não existe registro da numeração
@@ -291,7 +286,6 @@ for nX := 1 to Len(aSeries)
                     ZW1->(MsUnlock())
 
                     End Transaction
-                    RestArea(aArea)
                         
                 ENDIF
             endif
